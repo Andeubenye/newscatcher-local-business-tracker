@@ -1,0 +1,4 @@
+newscatcher-catchall-sdk
+python-dotenv
+pydantic[email]
+rapidfuzz
