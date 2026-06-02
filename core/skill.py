@@ -48,12 +48,20 @@ VALIDATORS = [
 ]
 
 ENRICHMENTS = [
-    {"name": "business_name",     "description": "Name of the opening business",                                      "type": "text"},
-    {"name": "business_type",     "description": "Category: restaurant, cafe, retail, clinic, gym, etc.",             "type": "text"},
-    {"name": "opening_date",      "description": "Confirmed or scheduled opening date in YYYY-MM-DD format",          "type": "date"},
-    {"name": "opening_qualifier", "description": "now_open, event_held, or date_announced",                           "type": "text"},
-    {"name": "location_details",  "description": "Street address, neighbourhood, or area",                            "type": "text"},
-    {"name": "owner_operator",    "description": "Owner, chef, or operating company if mentioned",                    "type": "text"},
-    {"name": "evidence_summary",  "description": "One sentence from the source that confirms this is a real opening", "type": "text"},
-    {"name": "source_url",        "description": "URL where the opening was reported",                                "type": "text"},
+    {"name": "business_name",     "description": "Name of the opening business",
+        "type": "text"},
+    {"name": "business_type",
+        "description": "Category: restaurant, cafe, retail, clinic, gym, etc.",             "type": "text"},
+    {"name": "opening_date",
+        "description": "Confirmed or scheduled opening date in YYYY-MM-DD format",          "type": "date"},
+    {"name": "opening_qualifier", "description": "now_open, event_held, or date_announced",
+        "type": "text"},
+    {"name": "location_details",  "description": "Street address, neighbourhood, or area",
+        "type": "text"},
+    {"name": "owner_operator",    "description": "Owner, chef, or operating company if mentioned",
+        "type": "text"},
+    {"name": "evidence_summary",
+        "description": "One sentence from the source that confirms this is a real opening", "type": "text"},
+    {"name": "source_url",        "description": "URL where the opening was reported",
+        "type": "text"},
 ]
