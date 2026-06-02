@@ -1,188 +1,160 @@
 ---
 name: local-business-openings
-description: >
-  Invoke this skill for any query about new local business openings,
-  grand openings, soft openings, or coming soon announcements.
-  Triggers on queries like "new restaurant openings in Austin last 14 days",
-  "grand opening cafe Singapore last week", "now open retail stores in London
-  last 30 days". Works for any business type, any location, any timeframe
-  within 30 days. Do NOT invoke for business closures, relocations, or
-  general business news without a confirmed opening event.
+description: Use this skill when asked to find new business openings
+ in a specific city, town, district, county, region, or country anywhere
+ in the world. Covers any business type -- restaurants, retail, cafes,
+ healthcare clinics, gyms, entertainment venues, and more. Triggers on
+ queries like "new businesses opening in [location]", "what's opening in
+ [city]", "[business type] openings in [place]". Do NOT use for business
+ closures, relocations, or general business news.
 ---
 
-This skill finds structured event records about confirmed local business
+This skill finds structured event records about new local business
 openings. It solves two things: how to write the right query, and what
-data to extract from results. CatchAll returns events extracted from web
-pages -- not raw web pages themselves. Every query, validator, and
-enrichment must reflect this distinction. You are describing opening
-events, not requesting journalism.
+data to extract from results. CatchAll returns events extracted from
+articles -- not raw articles themselves. Every query must reflect this
+distinction.
 
----
+## When to use this skill
 
-## CRITICAL: Never query for web pages
+Use this skill when the request is for new businesses opening in a
+specific location -- whether for local news coverage, sales prospecting,
+or market intelligence. Works at any geographic scope worldwide: street,
+city, district, county, region, or country.
 
-Before constructing any query, run this self-check:
+## How to use this skill
 
-**Does my query contain any of these forbidden phrases?**
+Before constructing any query, determine whether the request is for
+an event or an article. CatchAll extracts structured event records
+from articles -- it does not retrieve articles themselves. Querying
+for articles returns raw source content. Querying for events returns
+clean structured data: what opened, where, when, and who runs it.
 
-- `news articles`, `news stories`, `articles about`, `stories about`
-- `press coverage`, `media coverage`, `NLP summary`
-- `recent news`, `news on`, `coverage of`, `reports on`
-- `find articles`, `search articles`, `get articles`
+Always follow this formula: **[event type] + [specific location] +
+[timeframe within 30 days]**
 
-If yes — **stop and rewrite**. The query must describe what happened
-in the world, not what was written about it.
+Example: `"grand opening restaurant Tokyo last 14 days"`
 
-**Wrong:** `"news articles about new restaurant openings in Austin"`
-**Right:** `"grand opening restaurant Austin Texas last 14 days"`
+Then apply the validators and enrichments below to structure the output.
 
-**Wrong:** `"find articles covering new cafe openings in Singapore"`
-**Right:** `"now open cafe Yishun Singapore last 7 days"`
+## Rules
 
----
+**Never query for articles.** Phrases like "all news stories", "all
+articles", or "NLP summary of the article" trigger article retrieval
+instead of event extraction. Request event-level fields only.
 
-## How to build a query
+**Event type must be specific.** Vague types like "business news" or
+"local stories" will fail. Use "business openings", "restaurant
+openings", or "retail store openings" instead.
 
-Write a natural language sentence or phrase describing the opening event.
-Use one of the signal terms below combined with the business type,
-location, and timeframe.
+**Timeframe must be within 30 days.** Queries exceeding this window
+return unreliable results. Use explicit windows like "last 14 days"
+or "last 30 days" rather than open-ended ranges like "since January".
+For timeframes longer than 30 days, do not reject the query. Split it
+into consecutive 30-day windows and run each separately, then combine
+the results. A 3-month request becomes three queries: the first 30
+days, the second 30 days, the third 30 days.
 
-**Formula: signal term + business type + location + timeframe**
-
-**Signal terms (use at least one):**
-- `grand opening`
-- `now open`
-- `soft opening`
-- `coming soon` (for upcoming openings)
-- `opening soon`
-- `just opened`
-- `newly opened`
-
-**Examples:**
-
-| User input | Query to build |
-|---|---|
-| "new restaurants Austin last 2 weeks" | `"grand opening restaurant Austin Texas last 14 days"` |
-| "cafe openings Singapore" | `"now open cafe Singapore last 14 days"` |
-| "new gyms London this month" | `"grand opening gym London last 30 days"` |
-| "retail openings Dallas" | `"now open retail store Dallas Texas last 14 days"` |
-
-**Constraint limit:** Cap at 4 meaningful constraints. More constraints
-silently kill results.
-
-**Timeframe window:** Max 30 days per query. For coverage, run three
-signal term variants (grand opening, now open, soft opening) for the
-same business type and location as separate jobs.
-
----
+**Location must be explicit.** City, district, neighborhood, county,
+region, country, or a named list of towns all work. Vague regional
+terms do not.
 
 ## What counts as a valid opening
 
-A result qualifies only if it meets one of these criteria:
+A result qualifies as a business opening only if it meets one of these
+criteria:
 
-- A business has officially opened and is serving customers (`now_open`)
-- A grand opening or ribbon-cutting event has been held (`event_held`)
-- A specific opening date has been announced (`date_announced`)
-- A coming soon announcement with a named location (`coming_soon`)
+- The business has **physically opened its doors** to paying customers
+- An **opening event has been held** (grand opening, ribbon cutting, etc.)
+- An **official opening date within the next 30 days has been announced**
+ by the business or a credible source
 
-These do not qualify:
+These do **not** qualify:
 
-- Permit applications or construction notices
-- Renovations of existing businesses
-- Articles about a business that opened more than 60 days ago
-- Vague "opening soon" mentions without a named location
-- Business relocations without a confirmed new opening
+- Rumors or speculation ("could be opening soon")
+- Permit filings or zoning approvals with no stated opening date
+- Construction updates or renovation notices without a confirmed date
+- "Coming soon" signage or social media teasers with no specific date
+- Online-only platforms, apps, or digital services with no physical location customers can visit
+- Businesses located in a different city or region that merely reference the searched location in their article
 
----
 
-## Standard validators
+The key test: is there a confirmed date or confirmed open status? If
+not, exclude it.
 
-Use all four for every opening query:
+## Validators
 
-```json
-[
-  {
-    "name": "is_opening_event",
-    "description": "True only if the result describes a confirmed business opening, grand opening event, soft opening, or specific opening date announcement. False for permit applications, renovations, closures, relocations, or businesses that opened more than 60 days ago.",
-    "type": "boolean"
-  },
-  {
-    "name": "location_match",
-    "description": "True if the business is located in or primarily serving the specified city, region, or area. False if the location is ambiguous or in a different area.",
-    "type": "boolean"
-  },
-  {
-    "name": "business_type_match",
-    "description": "True if the business type matches the requested category (restaurant, cafe, gym, retail, clinic, etc.). If no business type was specified, set to true for all results.",
-    "type": "boolean"
-  },
-  {
-    "name": "event_in_timeframe",
-    "description": "True if the opening event or announcement falls within the requested time window. False if the date is unconfirmed or outside the window.",
-    "type": "boolean"
-  }
-]
-```
+- `is_business_opening` -- true only if the event meets one of the three
+ qualifying criteria above (physically open, event held, or official
+ date within 30 days announced). False for rumors, permit filings,
+ construction updates, or undated "coming soon" mentions.
+- `location_match` -- true if opened in the specified location
+- `event_in_timeframe` -- true if opening occurred or was announced
+ within the specified window
 
----
+## Enrichments
 
-## Standard enrichments
+- `business_name` -- name of the opening business
+- `business_type` -- restaurant, cafe, retail, clinic, gym, etc.
+- `opening_date` -- confirmed or scheduled opening date
+- `location_details` -- city, neighborhood, or street address
+- `owner_operator` -- owner, chef, or operating company if mentioned
+- `opening_qualifier` -- which qualifying criterion is met: `"now_open"`,
+ `"event_held"`, or `"date_announced"`. Omit if `is_business_opening`
+ is false.
 
-Core fields (used in article tutorial):
+## Fallback protocol when results are empty
 
-```json
-[
-  { "name": "business_name", "description": "Name of the business that opened or is opening", "type": "text" },
-  { "name": "business_type", "description": "Type of business: restaurant, cafe, gym, retail, clinic, bar, bakery, etc.", "type": "text" },
-  { "name": "opening_date", "description": "Confirmed or announced opening date in ISO format YYYY-MM-DD if available", "type": "date" },
-  { "name": "location_details", "description": "Full address or area description of the business location", "type": "text" }
-]
-```
+If CatchAll returns zero results, do not give up. Escalate in steps,
+and tell the user which fallback you're triggering before retrying.
 
-Full enrichment schema:
+**Step 1 -- Expand the timeframe.**
+If the initial query used a window shorter than 30 days (e.g., "last 7
+days" or "last 14 days"), retry with "last 30 days". Tell the user:
+"No results found in the last [N] days -- expanding to 30 days."
 
-```json
-[
-  { "name": "business_name", "description": "Name of the business that opened or is opening", "type": "text" },
-  { "name": "business_type", "description": "Type of business: restaurant, cafe, gym, retail, clinic, bar, bakery, hotel, etc.", "type": "text" },
-  { "name": "opening_date", "description": "Confirmed or announced opening date in ISO format YYYY-MM-DD if available", "type": "date" },
-  { "name": "opening_qualifier", "description": "Opening status: now_open (already serving customers), event_held (grand opening held), date_announced (specific future date announced), coming_soon (no date yet)", "type": "text" },
-  { "name": "location_details", "description": "Full address or area description including street, neighbourhood, city, and country where available", "type": "text" },
-  { "name": "owner_operator", "description": "Name of the owner, operator, or brand behind the opening if mentioned", "type": "text" },
-  { "name": "evidence_summary", "description": "One sentence summarising the evidence that confirms this is a real opening event", "type": "text" },
-  { "name": "source_url", "description": "Primary source URL where the opening was reported or announced", "type": "text" }
-]
-```
+**Step 2 -- Expand the geography.**
+If Step 1 still returns nothing, widen the location scope by one level:
+- neighborhood → full city
+- city → metro area or county
+- county → region or state/province
+- city/region → whole country
 
----
+Retry with the broader location and tell the user:
+"Still no results for [original location] -- expanding to [broader area]."
 
-## Extraction rules
+**Step 3 -- Broaden the business type.**
+If Step 2 still returns nothing and the original query targeted a
+specific business type (e.g., "vegan restaurant"), retry with a broader
+category (e.g., "restaurant", then "food and beverage"). Tell the user:
+"Broadening business type from [specific] to [general]."
 
-- Only extract confirmed opening events. Exclude permits, renovations, and closures.
-- Do not guess or infer missing values — return null.
-- `opening_qualifier`: map to now_open, event_held, date_announced, or coming_soon.
-- `opening_date`: normalize to ISO format YYYY-MM-DD. Return null if not stated.
-- `location_details`: include as much address detail as available from the source.
-- `evidence_summary`: one sentence only — what specifically confirms this is a real opening?
+**Step 4 -- Report honestly.**
+If all three fallback steps return nothing, tell the user: "No new
+business openings were found for [location] in the past 30 days, even
+after expanding the search. There may be limited coverage for this area
+in the available sources."
 
----
+Never silently expand scope. Always announce each fallback step so the
+user understands what changed and can decide whether to accept the
+broader results.
 
-## Limit heuristics
+## Query signal terms
 
-| User intent | Example | Action |
-|---|---|---|
-| Exhaustive ("all", "every") | "Find all restaurant openings in Austin last month" | Omit `limit` |
-| Exploratory | "New cafes in Singapore last 2 weeks?" | Set `limit: 50` |
-| Specific/narrow | "Any new gyms in Yishun?" | Set `limit: 10` |
+Include at least one of these phrases in your CatchAll query to signal
+that you're looking for opening events, not general business news:
 
----
+ grand opening, now open, opening soon, new location,
+ opening its doors, soft opening
 
-## Fallback query packages
+These are distinct from the business type (restaurant, clinic, gym) --
+both should appear in the query. Example:
 
-If the query returns no results, escalate in steps:
+ `"grand opening restaurant [city] last 14 days"`
 
-**Step 1 — Expand the timeframe.** Widen to 30 days if shorter.
-**Step 2 — Try a different signal term.** If "grand opening" returned nothing, try "now open" or "soft opening".
-**Step 3 — Expand the geography.** Widen: neighbourhood → city → metro area → region.
-**Step 4 — Broaden the business type.** Remove the specific type and run for all businesses.
+
 **Step 5 — Advise honestly.** "There may be limited public coverage for this location and timeframe."
+
+
+
+
